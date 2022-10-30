@@ -38,6 +38,8 @@ const (
 	subscriptionsPath = "/subscriptions"
 )
 
+var groupedSubscriptionsPath = subscriptionsPath
+
 // Subscribe subscribes to the given keys.
 func (c *Client) Subscribe(
 	ctx context.Context,
@@ -216,8 +218,12 @@ func (c *Client) putSubscriptions(
 		return fmt.Errorf("marshal %s: %w", sub.ID(), err)
 	}
 
+	if c.config.GroupName != "" {
+		groupedSubscriptionsPath = fmt.Sprintf("/%s%s", c.config.GroupName, subscriptionsPath)
+	}
+
 	for _, k := range keys {
-		k := path.Join(subscriptionsPath, k.String(), sub.ID())
+		k := path.Join(groupedSubscriptionsPath, k.String(), sub.ID())
 		if _, err = c.client.Put(ctx, k, encoded); err != nil {
 			logging.From(ctx).Error(err)
 			return fmt.Errorf("put %s: %w", k, err)
@@ -232,9 +238,12 @@ func (c *Client) pullSubscriptions(
 	ctx context.Context,
 	k key.Key,
 ) ([]types.Client, error) {
+	if c.config.GroupName != "" {
+		groupedSubscriptionsPath = fmt.Sprintf("/%s%s", c.config.GroupName, subscriptionsPath)
+	}
 	getResponse, err := c.client.Get(
 		ctx,
-		path.Join(subscriptionsPath, k.String()),
+		path.Join(groupedSubscriptionsPath, k.String()),
 		clientv3.WithPrefix(),
 	)
 	if err != nil {
@@ -260,8 +269,11 @@ func (c *Client) removeSubscriptions(
 	keys []key.Key,
 	sub *sync.Subscription,
 ) error {
+	if c.config.GroupName != "" {
+		groupedSubscriptionsPath = fmt.Sprintf("/%s%s", c.config.GroupName, subscriptionsPath)
+	}
 	for _, docKey := range keys {
-		k := path.Join(subscriptionsPath, docKey.String(), sub.ID())
+		k := path.Join(groupedSubscriptionsPath, docKey.String(), sub.ID())
 		if _, err := c.client.Delete(ctx, k); err != nil {
 			logging.From(ctx).Error(err)
 			return fmt.Errorf("delete %s: %w", k, err)

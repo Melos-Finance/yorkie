@@ -36,8 +36,13 @@ const (
 	serverValueTTL      = 7 * time.Second
 )
 
+var groupedServersPath = serversPath
+
 // Initialize put this server to etcd with TTL periodically.
 func (c *Client) Initialize() error {
+	if c.config.GroupName != "" {
+		groupedServersPath = fmt.Sprintf("/%s%s", c.config.GroupName, serversPath)
+	}
 	ctx := context.Background()
 	if err := c.putServerInfo(ctx); err != nil {
 		return err
@@ -72,9 +77,12 @@ func (c *Client) Members() map[string]*sync.ServerInfo {
 
 // initializeMemberMap initializes the local member map by loading data from etcd.
 func (c *Client) initializeMemberMap(ctx context.Context) error {
-	getResponse, err := c.client.Get(ctx, serversPath, clientv3.WithPrefix())
+	if c.config.GroupName != "" {
+		groupedServersPath = fmt.Sprintf("/%s%s", c.config.GroupName, serversPath)
+	}
+	getResponse, err := c.client.Get(ctx, groupedServersPath, clientv3.WithPrefix())
 	if err != nil {
-		return fmt.Errorf("get %s: %w", serversPath, err)
+		return fmt.Errorf("get %s: %w", groupedServersPath, err)
 	}
 
 	for _, kv := range getResponse.Kvs {
@@ -105,6 +113,9 @@ func (c *Client) putServerPeriodically() {
 
 // putServerInfo puts the local server in etcd.
 func (c *Client) putServerInfo(ctx context.Context) error {
+	if c.config.GroupName != "" {
+		groupedServersPath = fmt.Sprintf("/%s%s", c.config.GroupName, serversPath)
+	}
 	grantResponse, err := c.client.Grant(ctx, int64(serverValueTTL.Seconds()))
 	if err != nil {
 		return fmt.Errorf("grant %s: %w", c.serverInfo.ID, err)
@@ -117,7 +128,7 @@ func (c *Client) putServerInfo(ctx context.Context) error {
 		return fmt.Errorf("marshal %s: %w", c.serverInfo.ID, err)
 	}
 
-	k := path.Join(serversPath, c.serverInfo.ID)
+	k := path.Join(groupedServersPath, c.serverInfo.ID)
 	_, err = c.client.Put(ctx, k, string(bytes), clientv3.WithLease(grantResponse.ID))
 	if err != nil {
 		return fmt.Errorf("put %s: %w", k, err)
@@ -127,7 +138,10 @@ func (c *Client) putServerInfo(ctx context.Context) error {
 
 // removeServerInfo removes the local server in etcd.
 func (c *Client) removeServerInfo(ctx context.Context) error {
-	k := path.Join(serversPath, c.serverInfo.ID)
+	if c.config.GroupName != "" {
+		groupedServersPath = fmt.Sprintf("/%s%s", c.config.GroupName, serversPath)
+	}
+	k := path.Join(groupedServersPath, c.serverInfo.ID)
 	_, err := c.client.Delete(ctx, k)
 	if err != nil {
 		return fmt.Errorf("remove %s: %w", k, err)
@@ -139,7 +153,7 @@ func (c *Client) removeServerInfo(ctx context.Context) error {
 func (c *Client) syncServerInfos() {
 	// TODO(hackerwins): When the network is recovered, check if we need to
 	// recover the channels watched in the situation.
-	watchCh := c.client.Watch(c.ctx, serversPath, clientv3.WithPrefix())
+	watchCh := c.client.Watch(c.ctx, groupedServersPath, clientv3.WithPrefix())
 	for {
 		select {
 		case watchResponse := <-watchCh:

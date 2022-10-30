@@ -43,6 +43,7 @@ type Config struct {
 	Password    string   `yaml:"Password"`
 
 	LockLeaseTime string `yaml:"LockLeaseTime"`
+	GroupName     string `yaml:"GroupName"`
 }
 
 // Validate validates this config.
