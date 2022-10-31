@@ -68,6 +68,7 @@ var (
 	ETCDEndpoints     = []string{"localhost:2379"}
 	ETCDDialTimeout   = 5 * gotime.Second
 	ETCDLockLeaseTime = 30 * gotime.Second
+	ETCDGroupName     = "test"
 )
 
 func init() {
@@ -150,6 +151,7 @@ func TestConfig() *server.Config {
 			Endpoints:     ETCDEndpoints,
 			DialTimeout:   ETCDDialTimeout.String(),
 			LockLeaseTime: ETCDLockLeaseTime.String(),
+			GroupName:     ETCDGroupName,
 		},
 	}
 }

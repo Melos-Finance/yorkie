@@ -31,6 +31,10 @@ func (c *Client) NewLocker(
 	key sync.Key,
 ) (sync.Locker, error) {
 	ttl := int(c.config.ParseLockLeaseTime().Seconds())
+	var groupedKey = key.String()
+	if c.config.GroupName != "" {
+		groupedKey = fmt.Sprintf("/%s/%s", c.config.GroupName, key.String())
+	}
 	session, err := concurrency.NewSession(
 		c.client,
 		concurrency.WithContext(ctx),
@@ -42,7 +46,7 @@ func (c *Client) NewLocker(
 
 	return &internalLocker{
 		session,
-		concurrency.NewMutex(session, key.String()),
+		concurrency.NewMutex(session, groupedKey),
 	}, nil
 }
 
